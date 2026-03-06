@@ -55,7 +55,7 @@ PDF 파일은 저작권 문제로 저장소에 포함되어 있지 않습니다.
 ```bash
 python -m venv venv
 source venv/bin/activate  # Windows: venv\Scripts\activate
-pip install google-generativeai pandas openpyxl python-dotenv pdfplumber
+pip install -r requirements.txt
 ```
 
 `.env` 파일 생성:

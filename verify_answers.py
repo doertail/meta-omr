@@ -10,32 +10,36 @@ load_dotenv()
 CIRCLED = {'①': '1', '②': '2', '③': '3', '④': '4', '⑤': '5'}
 
 
-def _normalize(cell):
-    """셀 값을 1~5 문자열로 정규화. 변환 불가 시 None"""
+def _normalize(cell, allow_all=False):
+    """셀 값을 정규화. 1~5 또는 allow_all=True일 때 모든 자연수 문자열 반환"""
     if cell is None:
         return None
     cell = str(cell).strip()
     if cell in CIRCLED:
         return CIRCLED[cell]
-    if cell in {'1', '2', '3', '4', '5'}:
-        return cell
+    if allow_all:
+        if cell.isdecimal():
+            return cell
+    else:
+        if cell in {'1', '2', '3', '4', '5'}:
+            return cell
     return None
 
 
-def _is_answer_table(table):
-    """테이블이 정답표인지 판별: 1~45 범위 정수 + 1~5 답이 충분히 있어야 함"""
+def _is_answer_table(table, allow_all=False):
+    """테이블이 정답표인지 판별: 1~45 범위 정수 + 답이 충분히 있어야 함"""
     nums, answers = [], []
     for row in table:
         for cell in (row or []):
             s = str(cell or '').strip()
             if s.isdecimal() and 1 <= int(s) <= 45:
                 nums.append(int(s))
-            if _normalize(cell):
+            if _normalize(cell, allow_all):
                 answers.append(cell)
     return len(nums) >= 5 and len(answers) >= 5
 
 
-def _parse_answer_table(table, answer_map):
+def _parse_answer_table(table, answer_map, allow_all=False):
     """정답표 파싱: 인터리브 포맷(1,②,2,⑤,...) 또는 행분리 포맷 처리"""
     nums_row = []
     for row in table:
@@ -62,7 +66,7 @@ def _parse_answer_table(table, answer_map):
 
         # 2단계: 행 분리 포맷 — 번호 행과 정답 행이 교대
         nums = [int(c) for c in cells if c.isdecimal() and 1 <= int(c) <= 45]
-        ans = [_normalize(c) for c in cells if _normalize(c)]
+        ans = [_normalize(c, allow_all) for c in cells if _normalize(c, allow_all)]
 
         # 번호 행 판별: 중복 없이 오름차순 (정답 숫자 1~5를 번호로 오인 방지)
         is_q_row = bool(nums) and len(set(nums)) == len(nums) and nums == sorted(nums)
@@ -77,9 +81,9 @@ def _parse_answer_table(table, answer_map):
             nums_row = []
 
 
-def _parse_text_fallback(text, answer_map):
+def _parse_text_fallback(text, answer_map, allow_all=False):
     """텍스트에서 '01. ③' 패턴으로 정답 파싱 (테이블 추출 실패 시 사용)"""
-    # 패턴: 숫자(1~45) + 마침표/괄호/공백 + 원문자
+    # 1. 객관식 패턴: 숫자(1~45) + 마침표/괄호/공백 + 원문자
     matches = re.findall(r'\b(\d{1,2})[.)]\s*([①②③④⑤])', text)
     for num_str, circled in matches:
         n = int(num_str)
@@ -88,13 +92,21 @@ def _parse_text_fallback(text, answer_map):
             answer_map.setdefault(n, [])
             if a not in answer_map[n]:
                 answer_map[n].append(a)
+    
+    # 2. 주관식 패턴 (allow_all=True일 때): '단답형' 섹션 이후 '번호: 숫자' 형태 탐지
+    if allow_all:
+        subjective_matches = re.findall(r'(\d{1,2})\s*번?\s*답:\s*(\d+)', text)
+        for num_str, ans_str in subjective_matches:
+            n = int(num_str)
+            if 1 <= n <= 45:
+                answer_map.setdefault(n, [])
+                if ans_str not in answer_map[n]:
+                    answer_map[n].append(ans_str)
 
 
-def extract_answers_with_pdfplumber(solution_path):
+def extract_answers_with_pdfplumber(solution_path, is_math=False):
     """전 페이지 스캔으로 정답표 파싱.
     {번호(int): [정답후보(str), ...]} 반환.
-    선택과목 2세트면 같은 번호에 두 후보 모두 보관.
-    테이블로 추출 안 되면 텍스트 정규식으로 폴백.
     """
     try:
         answer_map = {}
@@ -102,18 +114,17 @@ def extract_answers_with_pdfplumber(solution_path):
             # 1단계: 테이블 추출 시도 (전 페이지)
             for page in pdf.pages:
                 for table in page.extract_tables():
-                    if _is_answer_table(table):
-                        _parse_answer_table(table, answer_map)
+                    if _is_answer_table(table, allow_all=is_math):
+                        _parse_answer_table(table, answer_map, allow_all=is_math)
 
             # 2단계: 테이블 추출 실패 시 텍스트 정규식 폴백
-            # 정답표는 첫/마지막 페이지에만 있음 — 해설 본문 페이지는 제외
             if not answer_map:
                 check_pages = [pdf.pages[0]]
                 if len(pdf.pages) > 1:
                     check_pages.append(pdf.pages[-1])
                 for page in check_pages:
                     text = page.extract_text() or ''
-                    _parse_text_fallback(text, answer_map)
+                    _parse_text_fallback(text, answer_map, allow_all=is_math)
 
         return answer_map or None
     except Exception as e:

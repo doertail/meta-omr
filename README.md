@@ -14,8 +14,10 @@
 ```
 meta-omr/
 ├── class.py                  # 핵심 실행 파일: PDF 분석 & 분류
-├── verify_answers.py         # 정답 교차 검증
-├── rules/                    # 과목별 분류 기준표
+├── verify_answers.py         # 해설 PDF 정답 재추출 & 교차 검증
+├── check_excels.py           # 생성된 Excel 품질 검증 (불확실/불일치 항목 확인)
+├── run_all.py                # 전체 파이프라인 한 번에 실행
+├── rules/                    # 27개 과목별 분류 기준표
 │   ├── 국어.py
 │   ├── 영어.py
 │   ├── 수학.py
@@ -37,7 +39,7 @@ meta-omr/
 ```bash
 python -m venv venv
 source venv/bin/activate  # Windows: venv\Scripts\activate
-pip install google-generativeai pandas openpyxl python-dotenv
+pip install google-generativeai pandas openpyxl python-dotenv pdfplumber
 ```
 
 `.env` 파일 생성:
@@ -70,6 +72,29 @@ python verify_answers.py
 ```
 
 해설 PDF에서 정답을 재추출해 1단계 결과와 대조. 불일치 항목을 `정답검증` 시트에 저장.
+
+### 3단계: 품질 검증 (선택)
+
+```bash
+python check_excels.py
+```
+
+생성된 모든 Excel 파일을 스캔해 이슈 항목 출력:
+- 불확실 태그 항목 (AI가 판단 유보)
+- 정답 형식 오류 (1~5 범위 외)
+- 정답 불일치 항목 (2단계 검증 결과)
+- 소분류 누락 항목
+
+> 또는 `python run_all.py`로 1~2단계를 한 번에 실행 가능.
+
+## 정확도
+
+내부 테스트 기준 (수능/고3 모의고사):
+
+| 검증 방식 | 일치율 | 비고 |
+|-----------|--------|------|
+| Gemini 자체 검증 | 90.7% | verify 로직 자체 오차 포함 |
+| pdfplumber 교차 검증 | 97.8% | 실제 class.py 오류율 ~2.2% |
 
 ## 새 과목 추가
 

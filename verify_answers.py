@@ -169,7 +169,7 @@ def main():
         print("과목이 입력되지 않았습니다.")
         return
 
-    output_path = os.path.join(target_folder, f"분류결과_{subject}.xlsx")
+    output_path = f"./분류결과/분류결과_{subject}.xlsx"
     if not os.path.exists(output_path):
         print(f"❌ {output_path} 파일이 없습니다. class.py를 먼저 실행해주세요.")
         return

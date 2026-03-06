@@ -244,7 +244,9 @@ def main():
         print(f"✓ 샘플 모드: 최대 {sample_size}개 파일 실행\n")
 
     # 기존 결과 파일 확인 (이어하기 기능)
-    output_path = os.path.join(target_folder, f"분류결과_{subject}.xlsx")
+    output_dir = "./분류결과"
+    os.makedirs(output_dir, exist_ok=True)
+    output_path = os.path.join(output_dir, f"분류결과_{subject}.xlsx")
     processed_files = set()
     all_results = []
 

@@ -43,7 +43,7 @@ def analyze_excels(target_dir):
     return report
 
 if __name__ == "__main__":
-    target_folder = "./고등 모의고사 기출"
+    target_folder = "./분류결과"
     results = analyze_excels(target_folder)
     if results:
         for r in results:
